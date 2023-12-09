@@ -44,6 +44,19 @@ spec:
                 description: A string field that specifies the DNS server(s) to be
                   used by the peers.
                 type: string
+              dnsService:
+                description: A field that specifies the service to be used as DNS
+                  for the peers.
+                properties:
+                  name:
+                    description: A string field that specifies the service name to
+                      be used as DNS for the peers.
+                    type: string
+                  namespace:
+                    description: A string field that specifies the namespace of the
+                      service to be used as DNS for the peers.
+                    type: string
+                type: object
               enableIpForwardOnPodInit:
                 description: A boolean field that specifies whether IP forwarding
                   should be enabled on the Wireguard VPN pod at startup. This can

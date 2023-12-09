@@ -338,8 +338,23 @@ func (r *WireguardReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if wireguard.Spec.Dns != "" {
 		dnsAddress = wireguard.Spec.Dns
 	} else {
+		dnsName := "kube-dns"
+		dnsNamespace := "kube-system"
+
+		if wireguard.Spec.DnsService != nil {
+			if wireguard.Spec.DnsService.Name != "" {
+				dnsName = wireguard.Spec.DnsService.Name
+				if wireguard.Spec.DnsService.Namespace != "" {
+					dnsNamespace = wireguard.Spec.DnsService.Namespace
+				} else {
+					// default to wireguard namespace if not specified
+					dnsNamespace = wireguard.Namespace
+				}
+			}
+		}
+
 		kubeDnsService := &corev1.Service{}
-		err = r.Get(ctx, types.NamespacedName{Name: "kube-dns", Namespace: "kube-system"}, kubeDnsService)
+		err = r.Get(ctx, types.NamespacedName{Name: dnsName, Namespace: dnsNamespace}, kubeDnsService)
 		if err == nil {
 			dnsAddress = kubeDnsService.Spec.ClusterIP
 			dnsSearchDomain = fmt.Sprintf("%s.svc.cluster.local", wireguard.Namespace)

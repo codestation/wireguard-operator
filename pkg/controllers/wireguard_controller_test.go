@@ -3,11 +3,12 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/jodevsa/wireguard-operator/pkg/api/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jodevsa/wireguard-operator/pkg/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -66,11 +67,12 @@ var _ = Describe("wireguard controller", func() {
 
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		wgName       = "vpn"
-		wgNamespace  = "default"
-		Timeout      = time.Second * 2
-		Interval     = time.Second * 1
-		dnsServiceIp = "10.0.0.42"
+		wgName            = "vpn"
+		wgNamespace       = "default"
+		Timeout           = time.Second * 2
+		Interval          = time.Second * 1
+		dnsServiceIp      = "10.0.0.42"
+		dnsOtherServiceIp = "10.0.0.43"
 	)
 
 	wgKey := types.NamespacedName{
@@ -134,6 +136,19 @@ var _ = Describe("wireguard controller", func() {
 			},
 		}
 		Expect(k8sClient.Create(context.Background(), dnsService)).Should(Succeed())
+
+		// create another dns service
+		dnsServiceOther := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "other-dns",
+				Namespace: "kube-system",
+			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP: dnsOtherServiceIp,
+				Ports:     []corev1.ServicePort{{Name: "dns", Protocol: corev1.ProtocolUDP, Port: 53}},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), dnsServiceOther)).Should(Succeed())
 
 	})
 	Context("Wireguard", func() {
@@ -207,6 +222,68 @@ var _ = Describe("wireguard controller", func() {
 				},
 				Spec: v1alpha1.WireguardSpec{
 					Dns: expectedDNS,
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), wgServer)).Should(Succeed())
+
+			wgPeerKey := types.NamespacedName{
+				Name:      wgName + "-peer1",
+				Namespace: wgNamespace,
+			}
+
+			wgPeer := &v1alpha1.WireguardPeer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      wgPeerKey.Name,
+					Namespace: wgPeerKey.Namespace,
+				},
+				Spec: v1alpha1.WireguardPeerSpec{
+					WireguardRef: wgName,
+				},
+			}
+
+			Expect(k8sClient.Create(context.Background(), wgPeer)).Should(Succeed())
+			expectedLabels := map[string]string{"app": "wireguard", "instance": wgKey.Name}
+			// service created
+			serviceName := wgKey.Name + "-svc"
+			serviceKey := types.NamespacedName{
+				Namespace: wgKey.Namespace,
+				Name:      serviceName,
+			}
+
+			// match labels
+			Eventually(func() map[string]string {
+				svc := &corev1.Service{}
+				k8sClient.Get(context.Background(), serviceKey, svc)
+				return svc.Spec.Selector
+			}, Timeout, Interval).Should(BeEquivalentTo(expectedLabels))
+
+			Expect(reconcileServiceWithTypeLoadBalancer(serviceKey, "test-address")).Should(Succeed())
+
+			Eventually(func() string {
+				wgPeer := &v1alpha1.WireguardPeer{}
+				k8sClient.Get(context.Background(), wgPeerKey, wgPeer)
+				for _, line := range strings.Split(wgPeer.Status.Config, "\n") {
+					if strings.Contains(line, "DNS") {
+						return line
+					}
+				}
+				return "DNS = CONFIG_NOT_SET_ERROR"
+			}, Timeout, Interval).Should(Equal("DNS = " + expectedDNS))
+
+		})
+		It("sets Custom DNS through Wireguard.Spec.dnsService", func() {
+
+			expectedDNS := "10.0.0.43, default.svc.cluster.local"
+			wgServer := &v1alpha1.Wireguard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      wgKey.Name,
+					Namespace: wgKey.Namespace,
+				},
+				Spec: v1alpha1.WireguardSpec{
+					DnsService: &v1alpha1.DnsService{
+						Name:      "other-dns",
+						Namespace: "kube-system",
+					},
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), wgServer)).Should(Succeed())
@@ -515,7 +592,7 @@ Endpoint = %s:%s"`, peerKey.Name, peer.Spec.Address, dnsServiceIp, peer.Namespac
 		for _, useWgUserspace := range []bool{true, false} {
 			testTextPrefix := "uses"
 			if !useWgUserspace {
-				testTextPrefix="does not use"
+				testTextPrefix = "does not use"
 			}
 
 			It(fmt.Sprintf("%s userspace implementation of wireguard if spec.useWgUserspaceImplementation is set to %t", testTextPrefix, useWgUserspace), func() {

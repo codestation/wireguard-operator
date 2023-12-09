@@ -192,12 +192,26 @@ spec:
               dns:
                 description: A string field that specifies the DNS server(s) to be used by the peers.
                 type: string
+              dnsService:
+                description: A field that specifies the service to be used as DNS for the peers.
+                properties:
+                  name:
+                    description: A string field that specifies the service name to be used as DNS for the peers.
+                    type: string
+                  namespace:
+                    description: A string field that specifies the namespace of the service to be used as DNS for the peers.
+                    type: string
+                type: object
               enableIpForwardOnPodInit:
                 description: A boolean field that specifies whether IP forwarding should be enabled on the Wireguard VPN pod at startup. This can be useful to enable if the peers are having problems with sending traffic to the internet.
                 type: boolean
               mtu:
                 description: A string field that specifies the maximum transmission unit (MTU) size for Wireguard packets for all peers.
                 type: string
+              port:
+                description: A field that specifies the value to use for a nodePort ServiceType
+                format: int32
+                type: integer
               serviceAnnotations:
                 additionalProperties:
                   type: string
@@ -206,6 +220,9 @@ spec:
               serviceType:
                 description: A field that specifies the type of Kubernetes service that should be used for the Wireguard VPN. This could be NodePort or LoadBalancer, depending on the needs of the deployment.
                 type: string
+              useWgUserspaceImplementation:
+                description: A boolean field that specifies whether to use the userspace implementation of Wireguard instead of the kernel one.
+                type: boolean
             type: object
           status:
             description: WireguardStatus defines the observed state of Wireguard

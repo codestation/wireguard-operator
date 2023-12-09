@@ -35,6 +35,13 @@ type WgStatusReport struct {
 	Message string `json:"message,omitempty"`
 }
 
+type DnsService struct {
+	// A string field that specifies the service name to be used as DNS for the peers.
+	Name string `json:"name,omitempty"`
+	// A string field that specifies the namespace of the service to be used as DNS for the peers.
+	Namespace string `json:"namespace,omitempty"`
+}
+
 // WireguardSpec defines the desired state of Wireguard
 type WireguardSpec struct {
 	// A string field that specifies the maximum transmission unit (MTU) size for Wireguard packets for all peers.
@@ -43,6 +50,8 @@ type WireguardSpec struct {
 	Address string `json:"address,omitempty"`
 	// A string field that specifies the DNS server(s) to be used by the peers.
 	Dns string `json:"dns,omitempty"`
+	// A field that specifies the service to be used as DNS for the peers.
+	DnsService *DnsService `json:"dnsService,omitempty"`
 	// A field that specifies the type of Kubernetes service that should be used for the Wireguard VPN. This could be NodePort or LoadBalancer, depending on the needs of the deployment.
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	// A field that specifies the value to use for a nodePort ServiceType
